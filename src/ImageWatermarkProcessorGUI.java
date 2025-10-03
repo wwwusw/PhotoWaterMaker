@@ -5,14 +5,17 @@ import javax.imageio.ImageWriter;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageInputStream;
 import javax.swing.*;
+import javax.swing.Timer;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -89,13 +92,25 @@ public class ImageWatermarkProcessorGUI extends JFrame {
     private JLabel imageTransparencyLabel;
     private JSlider imageScaleSlider;
     private JLabel imageScaleLabel;
+    // 在 ImageWatermarkProcessorGUI 类中添加以下新成员变量
+    private JLabel previewLabel;
+    private BufferedImage currentPreviewImage;
+    private Point watermarkPosition = new Point(0, 0);
+    private int watermarkRotation = 0;
+    private boolean isDraggingWatermark = false;
+    private Point dragStartPoint = new Point(0, 0);
+    private Point watermarkStartPoint = new Point(0, 0);
+    private JSlider rotationSlider;
+    private JLabel rotationLabel;
+    private JButton[] positionButtons = new JButton[9];
+    // 在 ImageWatermarkProcessorGUI 类中添加以下成员变量
+    private Timer previewUpdateTimer; // 用于延迟更新预览的定时器
+    private static final int PREVIEW_UPDATE_DELAY = 300; // 延迟300毫秒更新预览
+    private static final int PREVIEW_MAX_WIDTH = 500; // 增大预览图最大宽度
+    private static final int PREVIEW_MAX_HEIGHT = 400; // 增大预览图最大高度
+
     private void initializeComponents() {
         // 在 initializeComponents() 方法中添加新组件
-
-
-// 在 initializeComponents() 方法中初始化新组件
-
-
         setTitle("图片水印处理器");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 700);
@@ -115,7 +130,11 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         colorCombo = new JComboBox<>(new String[]{"white", "black", "red", "blue", "green", "yellow", "cyan", "magenta"});
         colorCombo.setSelectedItem("white");
 
-        positionCombo = new JComboBox<>(new String[]{"top-left", "top-right", "center", "bottom-left", "bottom-right"});
+        positionCombo = new JComboBox<>(new String[]{
+                "top-left", "top-center", "top-right",
+                "middle-left", "center", "middle-right",
+                "bottom-left", "bottom-center", "bottom-right"
+        });
         positionCombo.setSelectedItem("bottom-right");
 
         outputFormatCombo = new JComboBox<>(new String[]{"PNG", "JPEG"});
@@ -183,8 +202,30 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         imageJList.setCellRenderer(new ImageListCellRenderer());
         imageJList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         scrollPane = new JScrollPane(imageJList);
+        // 在 initializeComponents() 方法末尾添加
+        previewLabel = new JLabel();
+        previewLabel.setPreferredSize(new Dimension(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT));
+        previewLabel.setBorder(BorderFactory.createEtchedBorder());
+        previewLabel.setHorizontalAlignment(JLabel.CENTER);
+        previewLabel.setVerticalAlignment(JLabel.CENTER);
+
+        rotationLabel = new JLabel("旋转角度: 0°");
+        rotationSlider = new JSlider(-180, 180, 0);
+        rotationSlider.setMajorTickSpacing(90);
+        rotationSlider.setMinorTickSpacing(30);
+        rotationSlider.setPaintTicks(true);
+        rotationSlider.setPaintLabels(true);
+
+        // 初始化九宫格按钮图标或文字
+        String[] positionLabels = {"TL", "TC", "TR", "ML", "C", "MR", "BL", "BC", "BR"};
+        for (int i = 0; i < 9; i++) {
+            positionButtons[i] = new JButton(positionLabels[i]);
+            positionButtons[i].setFont(new Font("Arial", Font.PLAIN, 10));
+        }
+
     }
 
+    // 修改 setupLayout 方法中的布局设置
     private void setupLayout() {
         // 顶部控制面板
         JPanel controlPanel = new JPanel(new GridBagLayout());
@@ -199,7 +240,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         controlPanel.add(importFolderButton, gbc);
 
         // 字体大小
-        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1;
         controlPanel.add(new JLabel("字体大小:"), gbc);
         gbc.gridx = 1;
         controlPanel.add(fontSizeCombo, gbc);
@@ -246,7 +287,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         stylePanel.add(italicCheckBox);
         stylePanel.add(shadowCheckBox);
         stylePanel.add(outlineCheckBox);
-        gbc.gridx = 1;
+        gbc.gridx = 1; gbc.gridwidth = 1;
         controlPanel.add(stylePanel, gbc);
 
         gbc.gridx = 0; gbc.gridy = 9;
@@ -265,7 +306,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         JPanel imagePanel = new JPanel(new BorderLayout());
         imagePanel.add(imagePathField, BorderLayout.CENTER);
         imagePanel.add(browseImageButton, BorderLayout.EAST);
-        gbc.gridx = 1;
+        gbc.gridx = 1; gbc.gridwidth = 1;
         controlPanel.add(imagePanel, gbc);
 
         gbc.gridx = 0; gbc.gridy = 12;
@@ -287,10 +328,10 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         // 图片尺寸调整
         gbc.gridx = 0; gbc.gridy = 15;
         controlPanel.add(resizeCheckBox, gbc);
+        gbc.gridx = 1;
         resizePanel.add(resizeTypeCombo);
         resizePanel.add(resizeValueField);
         resizePanel.add(resizeUnitLabel);
-        gbc.gridx = 1;
         controlPanel.add(resizePanel, gbc);
 
         // 命名规则
@@ -302,7 +343,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         namingPanel.add(prefixField);
         namingPanel.add(addSuffixRadio);
         namingPanel.add(suffixField);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 1; gbc.gridwidth = 1; gbc.fill = GridBagConstraints.HORIZONTAL;
         controlPanel.add(namingPanel, gbc);
 
         // 导出路径
@@ -312,7 +353,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         JPanel exportPanel = new JPanel(new BorderLayout());
         exportPanel.add(exportPathField, BorderLayout.CENTER);
         exportPanel.add(browseExportButton, BorderLayout.EAST);
-        gbc.gridx = 1;
+        gbc.gridx = 1; gbc.gridwidth = 1;
         controlPanel.add(exportPanel, gbc);
 
         // 导出按钮
@@ -323,15 +364,46 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         controlPanel.add(buttonPanel, gbc);
 
         // 状态栏
-        gbc.gridy = 19;
+        gbc.gridx = 0; gbc.gridy = 19; gbc.gridwidth = 2;
         controlPanel.add(statusLabel, gbc);
+
+        // 预览面板 - 放在主面板的东部
+        JPanel previewPanel = new JPanel(new BorderLayout());
+        previewPanel.setBorder(BorderFactory.createTitledBorder("预览"));
+        previewPanel.setPreferredSize(new Dimension(PREVIEW_MAX_WIDTH + 20, PREVIEW_MAX_HEIGHT + 150));
+
+        // 九宫格位置按钮
+        JPanel positionGridPanel = new JPanel(new GridLayout(3, 3, 5, 5));
+        positionGridPanel.setBorder(BorderFactory.createTitledBorder("位置"));
+        positionGridPanel.setPreferredSize(new Dimension(150, 150));
+        for (int i = 0; i < 9; i++) {
+            positionButtons[i] = new JButton();
+            positionButtons[i].setPreferredSize(new Dimension(40, 40));
+            positionButtons[i].addActionListener(e -> {
+                JButton source = (JButton) e.getSource();
+                handlePositionButtonClick(source);
+            });
+            positionGridPanel.add(positionButtons[i]);
+        }
+
+        // 旋转控制
+        JPanel rotationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        rotationPanel.add(rotationLabel);
+        rotationPanel.add(rotationSlider);
+
+        // 组装预览面板
+        previewPanel.add(positionGridPanel, BorderLayout.NORTH);
+        previewPanel.add(previewLabel, BorderLayout.CENTER);
+        previewPanel.add(rotationPanel, BorderLayout.SOUTH);
 
         // 主面板布局
         mainPanel.add(controlPanel, BorderLayout.WEST);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
+        mainPanel.add(previewPanel, BorderLayout.EAST);
 
         add(mainPanel);
     }
+
 
     private void setupEventHandlers() {
         importButton.addActionListener(e -> importImages());
@@ -385,7 +457,545 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         resizeTypeCombo.setEnabled(false);
         resizeValueField.setEnabled(false);
         resizeUnitLabel.setEnabled(false);
+        // 添加旋转滑块监听器
+        rotationSlider.addChangeListener(e -> {
+            watermarkRotation = rotationSlider.getValue();
+            rotationLabel.setText("旋转角度: " + watermarkRotation + "°");
+            updatePreview();
+        });
+
+        // 添加图片列表选择监听器
+        imageJList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                updatePreview();
+            }
+        });
+
+        // 添加预览标签的鼠标监听器（用于拖拽水印）
+        previewLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (currentPreviewImage != null) {
+                    Point clickPoint = e.getPoint();
+                    // 检查点击是否在水印区域内
+                    if (isPointInWatermark(clickPoint)) {
+                        isDraggingWatermark = true;
+                        dragStartPoint = clickPoint;
+                        watermarkStartPoint = new Point(watermarkPosition);
+                        // 设置鼠标光标为移动光标
+                        previewLabel.setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+                    }
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (isDraggingWatermark) {
+                    isDraggingWatermark = false;
+                    previewLabel.setCursor(Cursor.getDefaultCursor());
+                    // 更新预览
+                    updatePreview();
+                }
+            }
+        });
+
+        previewLabel.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (isDraggingWatermark && currentPreviewImage != null) {
+                    int dx = e.getX() - dragStartPoint.x;
+                    int dy = e.getY() - dragStartPoint.y;
+
+                    watermarkPosition.x = watermarkStartPoint.x + dx;
+                    watermarkPosition.y = watermarkStartPoint.y + dy;
+
+                    // 实时更新预览（仅在拖拽时）
+                    updatePreview();
+                }
+            }
+        });
+
+        addWatermarkPreviewListeners();
+
+    // 初始化九宫格按钮图标或文字
+        String[] positionLabels = {"TL", "TC", "TR", "ML", "C", "MR", "BL", "BC", "BR"};
+        for (int i = 0; i < 9; i++) {
+            positionButtons[i].setText(positionLabels[i]);
+        }
     }
+    // 在类中添加以下新方法
+
+    /**
+     * 更新预览图像
+     */
+    private void updatePreview() {
+        if (imageJList.getSelectedValue() != null) {
+            ImageInfo selectedImage = imageJList.getSelectedValue();
+            try {
+                BufferedImage originalImage = ImageIO.read(selectedImage.getFile());
+                if (originalImage == null) {
+                    previewLabel.setIcon(null);
+                    currentPreviewImage = null;
+                    return;
+                }
+
+                // 缩放到适合预览的大小
+                BufferedImage scaledImage = scaleImageForPreview(originalImage);
+
+                // 添加水印
+                BufferedImage watermarkedImage = addWatermarkToPreview(scaledImage);
+
+                // 显示在预览标签上
+                previewLabel.setIcon(new ImageIcon(watermarkedImage));
+                currentPreviewImage = watermarkedImage;
+            } catch (IOException e) {
+                e.printStackTrace();
+                previewLabel.setIcon(null);
+                currentPreviewImage = null;
+            }
+        } else {
+            previewLabel.setIcon(null);
+            currentPreviewImage = null;
+        }
+    }
+
+
+    /**
+     * 缩放图片以适合预览区域
+     */
+    /**
+     * 缩放图片以适合预览区域
+     */
+    private BufferedImage scaleImageForPreview(BufferedImage originalImage) {
+        int maxWidth = PREVIEW_MAX_WIDTH;
+        int maxHeight = PREVIEW_MAX_HEIGHT;
+
+        int originalWidth = originalImage.getWidth();
+        int originalHeight = originalImage.getHeight();
+
+        // 保持宽高比
+        double scale = Math.min((double) maxWidth / originalWidth, (double) maxHeight / originalHeight);
+
+        int newWidth = (int) (originalWidth * scale);
+        int newHeight = (int) (originalHeight * scale);
+
+        // 使用更高质量的缩放算法
+        BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, originalImage.getType());
+        Graphics2D g2d = scaledImage.createGraphics();
+
+        // 设置渲染提示以获得更好的图像质量
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        g2d.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
+        g2d.dispose();
+
+        return scaledImage;
+    }
+
+
+    /**
+     * 为预览图像添加水印
+     */
+    private BufferedImage addWatermarkToPreview(BufferedImage originalImage) {
+        int width = originalImage.getWidth();
+        int height = originalImage.getHeight();
+
+        BufferedImage watermarkedImage = new BufferedImage(width, height,
+                originalImage.getType() != BufferedImage.TYPE_INT_ARGB ?
+                        BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = watermarkedImage.createGraphics();
+        g2d.drawImage(originalImage, 0, 0, null);
+
+        if (textWatermarkRadio.isSelected()) {
+            addTextWatermarkToPreview(g2d, width, height);
+        } else {
+            addImageWatermarkToPreview(g2d, width, height);
+        }
+
+        g2d.dispose();
+        return watermarkedImage;
+    }
+
+    /**
+     * 为预览图像添加文本水印
+     */
+    private void addTextWatermarkToPreview(Graphics2D g2d, int imageWidth, int imageHeight) {
+        String text = watermarkTextField.getText();
+        String fontName = (String) fontNameCombo.getSelectedItem();
+        int fontSize = Integer.parseInt((String) fontSizeCombo.getSelectedItem());
+        int style = Font.PLAIN;
+        if (boldCheckBox.isSelected()) style |= Font.BOLD;
+        if (italicCheckBox.isSelected()) style |= Font.ITALIC;
+
+        Font font = new Font(fontName, style, fontSize);
+        g2d.setFont(font);
+
+        Color baseColor = colorPickerButton.getBackground();
+        int alpha = (int) (transparencySlider.getValue() * 2.55);
+        Color color = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), alpha);
+        g2d.setColor(color);
+
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        FontMetrics fontMetrics = g2d.getFontMetrics();
+        int textWidth = fontMetrics.stringWidth(text);
+        int textHeight = fontMetrics.getHeight();
+
+        // 计算水印位置
+        Point position = calculateWatermarkPosition(imageWidth, imageHeight, textWidth, textHeight);
+
+        // 应用手动拖拽偏移
+        position.x += watermarkPosition.x;
+        position.y += watermarkPosition.y;
+
+        AffineTransform orig = g2d.getTransform();
+
+        if (watermarkRotation != 0) {
+            // 执行旋转变换
+            AffineTransform transform = new AffineTransform();
+            transform.rotate(Math.toRadians(watermarkRotation), position.x + textWidth/2.0, position.y - textHeight/2.0);
+            g2d.transform(transform);
+        }
+
+        // 添加阴影效果
+        if (shadowCheckBox.isSelected()) {
+            g2d.setColor(new Color(0, 0, 0, alpha));
+            g2d.drawString(text, position.x + 2, position.y + 2);
+            g2d.setColor(color);
+        }
+
+        // 添加描边效果
+        if (outlineCheckBox.isSelected()) {
+            g2d.setColor(new Color(0, 0, 0, alpha));
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    if (i != 0 || j != 0) {
+                        g2d.drawString(text, position.x + i, position.y + j);
+                    }
+                }
+            }
+            g2d.setColor(color);
+        }
+
+        // 绘制文本
+        g2d.drawString(text, position.x, position.y);
+
+        // 恢复原始变换
+        g2d.setTransform(orig);
+    }
+
+    /**
+     * 为预览图像添加图片水印
+     */
+    private void addImageWatermarkToPreview(Graphics2D g2d, int imageWidth, int imageHeight) {
+        String imagePath = imagePathField.getText().trim();
+        if (imagePath.isEmpty()) {
+            return;
+        }
+
+        File imageFile = new File(imagePath);
+        if (!imageFile.exists()) {
+            return;
+        }
+
+        try {
+            BufferedImage watermarkImage = ImageIO.read(imageFile);
+            if (watermarkImage == null) {
+                return;
+            }
+
+            int scalePercent = imageScaleSlider.getValue();
+            int scaledWidth = (int) (watermarkImage.getWidth() * scalePercent / 100.0);
+            int scaledHeight = (int) (watermarkImage.getHeight() * scalePercent / 100.0);
+
+            Point position = calculateWatermarkPosition(imageWidth, imageHeight, scaledWidth, scaledHeight);
+
+            // 应用手动拖拽偏移
+            position.x += watermarkPosition.x;
+            position.y += watermarkPosition.y;
+
+            int alpha = imageTransparencySlider.getValue();
+            if (alpha < 100) {
+                AlphaComposite alphaComposite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha / 100.0f);
+                g2d.setComposite(alphaComposite);
+            }
+
+            AffineTransform orig = g2d.getTransform();
+
+            if (watermarkRotation != 0) {
+                // 执行旋转变换
+                AffineTransform transform = new AffineTransform();
+                transform.rotate(Math.toRadians(watermarkRotation), position.x + scaledWidth/2.0, position.y + scaledHeight/2.0);
+                g2d.transform(transform);
+            }
+
+            g2d.drawImage(watermarkImage, position.x, position.y, scaledWidth, scaledHeight, null);
+
+            // 恢复原始变换
+            g2d.setTransform(orig);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 根据选定的位置计算水印坐标
+     */
+    private Point calculateWatermarkPosition(int imageWidth, int imageHeight, int watermarkWidth, int watermarkHeight) {
+        Point position = new Point(0, 0);
+
+        // 如果用户手动设置了位置，则使用该位置
+        if (watermarkPosition.x != 0 || watermarkPosition.y != 0) {
+            position.x = watermarkPosition.x;
+            position.y = watermarkPosition.y;
+            return position;
+        }
+
+        String positionStr = (String) positionCombo.getSelectedItem();
+        switch (positionStr.toLowerCase()) {
+            case "top-left":
+                position.x = 10;
+                position.y = watermarkHeight;
+                break;
+            case "top-center":
+                position.x = (imageWidth - watermarkWidth) / 2;
+                position.y = watermarkHeight;
+                break;
+            case "top-right":
+                position.x = imageWidth - watermarkWidth - 10;
+                position.y = watermarkHeight;
+                break;
+            case "middle-left":
+                position.x = 10;
+                position.y = (imageHeight - watermarkHeight) / 2;
+                break;
+            case "center":
+                position.x = (imageWidth - watermarkWidth) / 2;
+                position.y = (imageHeight - watermarkHeight) / 2;
+                break;
+            case "middle-right":
+                position.x = imageWidth - watermarkWidth - 10;
+                position.y = (imageHeight - watermarkHeight) / 2;
+                break;
+            case "bottom-left":
+                position.x = 10;
+                position.y = imageHeight - 10;
+                break;
+            case "bottom-center":
+                position.x = (imageWidth - watermarkWidth) / 2;
+                position.y = imageHeight - 10;
+                break;
+            case "bottom-right":
+            default:
+                position.x = imageWidth - watermarkWidth - 10;
+                position.y = imageHeight - 10;
+                break;
+        }
+
+        return position;
+    }
+
+    /**
+     * 检查点击点是否在水印区域内
+     */
+    private boolean isPointInWatermark(Point point) {
+        if (currentPreviewImage == null) return false;
+
+        try {
+            // 获取水印的大概位置和尺寸
+            if (textWatermarkRadio.isSelected()) {
+                // 文本水印
+                String text = watermarkTextField.getText();
+                int fontSize = Integer.parseInt((String) fontSizeCombo.getSelectedItem());
+                Font font = new Font((String) fontNameCombo.getSelectedItem(), Font.PLAIN, fontSize);
+
+                BufferedImage temp = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g2d = temp.createGraphics();
+                g2d.setFont(font);
+                FontMetrics fm = g2d.getFontMetrics();
+                int textWidth = fm.stringWidth(text);
+                int textHeight = fm.getHeight();
+                g2d.dispose();
+
+                // 计算水印位置
+                Point position = calculateWatermarkPosition(
+                        currentPreviewImage.getWidth(),
+                        currentPreviewImage.getHeight(),
+                        textWidth,
+                        textHeight
+                );
+
+                // 应用手动拖拽偏移
+                position.x += watermarkPosition.x;
+                position.y += watermarkPosition.y;
+
+                // 检查点是否在文本区域内
+                return point.x >= position.x && point.x <= position.x + textWidth &&
+                        point.y >= position.y - textHeight && point.y <= position.y;
+            } else {
+                // 图片水印
+                String imagePath = imagePathField.getText().trim();
+                if (imagePath.isEmpty()) return false;
+
+                File imageFile = new File(imagePath);
+                if (!imageFile.exists()) return false;
+
+                BufferedImage watermarkImage = ImageIO.read(imageFile);
+                if (watermarkImage == null) return false;
+
+                int scalePercent = imageScaleSlider.getValue();
+                int scaledWidth = (int) (watermarkImage.getWidth() * scalePercent / 100.0);
+                int scaledHeight = (int) (watermarkImage.getHeight() * scalePercent / 100.0);
+
+                // 计算水印位置
+                Point position = calculateWatermarkPosition(
+                        currentPreviewImage.getWidth(),
+                        currentPreviewImage.getHeight(),
+                        scaledWidth,
+                        scaledHeight
+                );
+
+                // 应用手动拖拽偏移
+                position.x += watermarkPosition.x;
+                position.y += watermarkPosition.y;
+
+                // 检查点是否在图片区域内
+                return point.x >= position.x && point.x <= position.x + scaledWidth &&
+                        point.y >= position.y && point.y <= position.y + scaledHeight;
+            }
+        } catch (Exception e) {
+            // 出错时使用简化判断
+            int watermarkAreaX = currentPreviewImage.getWidth() - 150;
+            int watermarkAreaY = currentPreviewImage.getHeight() - 100;
+
+            return point.x >= watermarkAreaX && point.x <= currentPreviewImage.getWidth() &&
+                    point.y >= watermarkAreaY && point.y <= currentPreviewImage.getHeight();
+        }
+    }
+
+
+    /**
+     * 处理位置按钮点击事件
+     */
+    private void handlePositionButtonClick(JButton button) {
+        // 重置手动位置偏移
+        watermarkPosition = new Point(0, 0);
+
+        // 根据按钮位置更新下拉框选项
+        for (int i = 0; i < positionButtons.length; i++) {
+            if (positionButtons[i] == button) {
+                String[] positions = {"top-left", "top-center", "top-right",
+                        "middle-left", "center", "middle-right",
+                        "bottom-left", "bottom-center", "bottom-right"};
+                positionCombo.setSelectedItem(positions[i]);
+                break;
+            }
+        }
+
+        updatePreview();
+    }
+
+    /**
+     * 根据当前坐标更新位置下拉框
+     */
+    private void updatePositionComboFromCoordinates() {
+        // 此方法可以根据水印的实际位置更新位置下拉框
+        // 为了简化，这里留空，但在完整实现中可以根据watermarkPosition计算最接近的预设位置
+    }
+
+    /**
+     * 在适当的地方调用此方法以更新预览
+     * 例如，在setupEventHandlers()中添加对水印相关控件的监听器
+     */
+    /**
+     * 在适当的地方调用此方法以更新预览
+     * 例如，在setupEventHandlers()中添加对水印相关控件的监听器
+     */
+    private void addWatermarkPreviewListeners() {
+        // 初始化预览更新定时器
+        previewUpdateTimer = new Timer(PREVIEW_UPDATE_DELAY, e -> updatePreview());
+        previewUpdateTimer.setRepeats(false); // 只执行一次
+
+        // 创建一个通用的更新预览方法
+        ActionListener previewUpdateAction = e -> {
+            if (previewUpdateTimer.isRunning()) {
+                previewUpdateTimer.restart(); // 重置定时器
+            } else {
+                previewUpdateTimer.start(); // 启动定时器
+            }
+        };
+
+        // 监听所有影响水印外观的控件
+        watermarkTextField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                previewUpdateAction.actionPerformed(null);
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                previewUpdateAction.actionPerformed(null);
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                previewUpdateAction.actionPerformed(null);
+            }
+        });
+
+        fontNameCombo.addActionListener(previewUpdateAction);
+        fontSizeCombo.addActionListener(previewUpdateAction);
+        boldCheckBox.addActionListener(previewUpdateAction);
+        italicCheckBox.addActionListener(previewUpdateAction);
+        colorPickerButton.addActionListener(previewUpdateAction);
+
+        transparencySlider.addChangeListener(e -> {
+            transparencyLabel.setText("透明度: " + transparencySlider.getValue() + "%");
+            previewUpdateAction.actionPerformed(null);
+        });
+
+        shadowCheckBox.addActionListener(previewUpdateAction);
+        outlineCheckBox.addActionListener(previewUpdateAction);
+
+        imagePathField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                previewUpdateAction.actionPerformed(null);
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                previewUpdateAction.actionPerformed(null);
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                previewUpdateAction.actionPerformed(null);
+            }
+        });
+
+        imageTransparencySlider.addChangeListener(e -> {
+            imageTransparencyLabel.setText("透明度: " + imageTransparencySlider.getValue() + "%");
+            previewUpdateAction.actionPerformed(null);
+        });
+
+        imageScaleSlider.addChangeListener(e -> {
+            imageScaleLabel.setText("缩放: " + imageScaleSlider.getValue() + "%");
+            previewUpdateAction.actionPerformed(null);
+        });
+
+        positionCombo.addActionListener(e -> {
+            // 重置手动位置偏移
+            watermarkPosition = new Point(0, 0);
+            previewUpdateAction.actionPerformed(null);
+        });
+    }
+
+
     // 添加颜色选择方法
     private void chooseColor() {
         Color newColor = JColorChooser.showDialog(this, "选择水印颜色", colorPickerButton.getBackground());
@@ -1042,6 +1652,23 @@ public class ImageWatermarkProcessorGUI extends JFrame {
 
             return this;
         }
+    }
+
+    // 在类内部添加这个简单文档监听器类
+    abstract class SimpleDocumentListener implements DocumentListener {
+        public void insertUpdate(DocumentEvent e) {
+            update(e);
+        }
+
+        public void removeUpdate(DocumentEvent e) {
+            update(e);
+        }
+
+        public void changedUpdate(DocumentEvent e) {
+            update(e);
+        }
+
+        public abstract void update(DocumentEvent e);
     }
 
     public static void main(String[] args) {
