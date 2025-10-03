@@ -69,8 +69,33 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         setupDragAndDrop();
         updateUIBasedOnFormat(); // 初始化时根据默认格式更新UI
     }
-
+    private JTextField watermarkTextField;
+    private JComboBox<String> fontNameCombo;
+    private JCheckBox boldCheckBox;
+    private JCheckBox italicCheckBox;
+    private JButton colorPickerButton;
+    private JSlider transparencySlider;
+    private JLabel transparencyLabel;
+    private JCheckBox shadowCheckBox;
+    private JCheckBox outlineCheckBox;
+    private JPanel textWatermarkPanel;
+    private JPanel imageWatermarkPanel;
+    private JRadioButton textWatermarkRadio;
+    private JRadioButton imageWatermarkRadio;
+    private ButtonGroup watermarkTypeGroup;
+    private JTextField imagePathField;
+    private JButton browseImageButton;
+    private JSlider imageTransparencySlider;
+    private JLabel imageTransparencyLabel;
+    private JSlider imageScaleSlider;
+    private JLabel imageScaleLabel;
     private void initializeComponents() {
+        // 在 initializeComponents() 方法中添加新组件
+
+
+// 在 initializeComponents() 方法中初始化新组件
+
+
         setTitle("图片水印处理器");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 700);
@@ -110,7 +135,32 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         browseExportButton = new JButton("浏览");
 
         statusLabel = new JLabel("就绪");
+        // 初始化水印文本组件
+        watermarkTextField = new JTextField("自定义水印文本", 15);
+        fontNameCombo = new JComboBox<>(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames());
+        boldCheckBox = new JCheckBox("粗体");
+        italicCheckBox = new JCheckBox("斜体");
+        colorPickerButton = new JButton("选择颜色");
+        colorPickerButton.setBackground(Color.WHITE);
+        transparencySlider = new JSlider(0, 100, 100);
+        transparencyLabel = new JLabel("透明度: 100%");
+        shadowCheckBox = new JCheckBox("阴影");
+        outlineCheckBox = new JCheckBox("描边");
+        textWatermarkPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
+        textWatermarkRadio = new JRadioButton("文本水印", true);
+        imageWatermarkRadio = new JRadioButton("图片水印");
+        watermarkTypeGroup = new ButtonGroup();
+        watermarkTypeGroup.add(textWatermarkRadio);
+        watermarkTypeGroup.add(imageWatermarkRadio);
+
+        imagePathField = new JTextField(15);
+        browseImageButton = new JButton("浏览");
+        imageTransparencySlider = new JSlider(0, 100, 100);
+        imageTransparencyLabel = new JLabel("透明度: 100%");
+        imageScaleSlider = new JSlider(10, 200, 100);
+        imageScaleLabel = new JLabel("缩放: 100%");
+        imageWatermarkPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         // 初始化JPEG质量控制组件
         jpegQualityLabel = new JLabel("JPEG质量: 75");
         jpegQualitySlider = new JSlider(0, 100, 75);
@@ -140,9 +190,10 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         JPanel controlPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // 导入按钮
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 1;
         controlPanel.add(importButton, gbc);
         gbc.gridx = 1;
         controlPanel.add(importFolderButton, gbc);
@@ -171,26 +222,79 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         gbc.gridx = 1;
         controlPanel.add(outputFormatCombo, gbc);
 
-        // JPEG质量控制
+        // 水印类型选择
         gbc.gridx = 0; gbc.gridy = 5;
+        controlPanel.add(textWatermarkRadio, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(imageWatermarkRadio, gbc);
+
+        // 文本水印面板
+        gbc.gridx = 0; gbc.gridy = 6;
+        controlPanel.add(new JLabel("水印文本:"), gbc);
+        gbc.gridx = 1;
+        controlPanel.add(watermarkTextField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 7;
+        controlPanel.add(new JLabel("字体:"), gbc);
+        gbc.gridx = 1;
+        controlPanel.add(fontNameCombo, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 8;
+        controlPanel.add(new JLabel("样式:"), gbc);
+        JPanel stylePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        stylePanel.add(boldCheckBox);
+        stylePanel.add(italicCheckBox);
+        stylePanel.add(shadowCheckBox);
+        stylePanel.add(outlineCheckBox);
+        gbc.gridx = 1;
+        controlPanel.add(stylePanel, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 9;
+        controlPanel.add(new JLabel("颜色:"), gbc);
+        gbc.gridx = 1;
+        controlPanel.add(colorPickerButton, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 10;
+        controlPanel.add(transparencyLabel, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(transparencySlider, gbc);
+
+        // 图片水印面板
+        gbc.gridx = 0; gbc.gridy = 11;
+        controlPanel.add(new JLabel("图片路径:"), gbc);
+        JPanel imagePanel = new JPanel(new BorderLayout());
+        imagePanel.add(imagePathField, BorderLayout.CENTER);
+        imagePanel.add(browseImageButton, BorderLayout.EAST);
+        gbc.gridx = 1;
+        controlPanel.add(imagePanel, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 12;
+        controlPanel.add(imageTransparencyLabel, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(imageTransparencySlider, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 13;
+        controlPanel.add(imageScaleLabel, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(imageScaleSlider, gbc);
+
+        // JPEG质量控制
+        gbc.gridx = 0; gbc.gridy = 14;
         controlPanel.add(jpegQualityLabel, gbc);
-        jpegQualityPanel.add(jpegQualitySlider);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL;
-        controlPanel.add(jpegQualityPanel, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(jpegQualitySlider, gbc);
 
         // 图片尺寸调整
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.gridx = 0; gbc.gridy = 6;
+        gbc.gridx = 0; gbc.gridy = 15;
         controlPanel.add(resizeCheckBox, gbc);
         resizePanel.add(resizeTypeCombo);
         resizePanel.add(resizeValueField);
         resizePanel.add(resizeUnitLabel);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 1;
         controlPanel.add(resizePanel, gbc);
 
         // 命名规则
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.gridx = 0; gbc.gridy = 7;
+        gbc.gridx = 0; gbc.gridy = 16;
         controlPanel.add(new JLabel("命名规则:"), gbc);
         JPanel namingPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         namingPanel.add(keepOriginalRadio);
@@ -202,24 +306,24 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         controlPanel.add(namingPanel, gbc);
 
         // 导出路径
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.gridx = 0; gbc.gridy = 8;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0; gbc.gridy = 17;
         controlPanel.add(new JLabel("导出目录:"), gbc);
         JPanel exportPanel = new JPanel(new BorderLayout());
         exportPanel.add(exportPathField, BorderLayout.CENTER);
         exportPanel.add(browseExportButton, BorderLayout.EAST);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 1;
         controlPanel.add(exportPanel, gbc);
 
         // 导出按钮
-        gbc.gridx = 0; gbc.gridy = 9; gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 18; gbc.gridwidth = 2;
         JPanel buttonPanel = new JPanel(new FlowLayout());
         buttonPanel.add(exportButton);
         buttonPanel.add(processButton);
         controlPanel.add(buttonPanel, gbc);
 
         // 状态栏
-        gbc.gridy = 10;
+        gbc.gridy = 19;
         controlPanel.add(statusLabel, gbc);
 
         // 主面板布局
@@ -261,12 +365,67 @@ public class ImageWatermarkProcessorGUI extends JFrame {
                 resizeUnitLabel.setText("像素");
             }
         });
-
+        // 在 setupEventHandlers() 方法中添加新事件监听器
+        textWatermarkRadio.addActionListener(e -> updateWatermarkUI());
+        imageWatermarkRadio.addActionListener(e -> updateWatermarkUI());
+        colorPickerButton.addActionListener(e -> chooseColor());
+        browseImageButton.addActionListener(e -> browseImageFile());
+        transparencySlider.addChangeListener(e -> {
+            transparencyLabel.setText("透明度: " + transparencySlider.getValue() + "%");
+        });
+        imageTransparencySlider.addChangeListener(e -> {
+            imageTransparencyLabel.setText("透明度: " + imageTransparencySlider.getValue() + "%");
+        });
+        imageScaleSlider.addChangeListener(e -> {
+            imageScaleLabel.setText("缩放: " + imageScaleSlider.getValue() + "%");
+        });
+        // 初始化UI状态
+        updateWatermarkUI();
         // 初始化组件状态
         resizeTypeCombo.setEnabled(false);
         resizeValueField.setEnabled(false);
         resizeUnitLabel.setEnabled(false);
     }
+    // 添加颜色选择方法
+    private void chooseColor() {
+        Color newColor = JColorChooser.showDialog(this, "选择水印颜色", colorPickerButton.getBackground());
+        if (newColor != null) {
+            colorPickerButton.setBackground(newColor);
+        }
+    }
+
+    // 添加图片文件浏览方法
+    private void browseImageFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("图片文件 (PNG, JPG, JPEG)", "png", "jpg", "jpeg"));
+
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            imagePathField.setText(selectedFile.getAbsolutePath());
+        }
+    }
+
+    // 更新水印UI状态
+    private void updateWatermarkUI() {
+        boolean isTextWatermark = textWatermarkRadio.isSelected();
+
+        // 文本水印组件
+        watermarkTextField.setEnabled(isTextWatermark);
+        fontNameCombo.setEnabled(isTextWatermark);
+        boldCheckBox.setEnabled(isTextWatermark);
+        italicCheckBox.setEnabled(isTextWatermark);
+        colorPickerButton.setEnabled(isTextWatermark);
+        transparencySlider.setEnabled(isTextWatermark);
+        shadowCheckBox.setEnabled(isTextWatermark);
+        outlineCheckBox.setEnabled(isTextWatermark);
+
+        // 图片水印组件
+        imagePathField.setEnabled(!isTextWatermark);
+        browseImageButton.setEnabled(!isTextWatermark);
+        imageTransparencySlider.setEnabled(!isTextWatermark);
+        imageScaleSlider.setEnabled(!isTextWatermark);
+    }
+
 
     private void setupDragAndDrop() {
         new DropTarget(this, new DropTargetListener() {
@@ -495,6 +654,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         worker.execute();
     }
 
+    // 修改 processSingleImage 方法调用
     private void processSingleImage(ImageInfo imageInfo, File exportDir,
                                     int fontSize, String color, String position, String format,
                                     float jpegQuality, boolean resizeEnabled, String resizeType, int resizeValue) throws IOException {
@@ -511,14 +671,8 @@ public class ImageWatermarkProcessorGUI extends JFrame {
             processedImage = resizeImage(originalImage, resizeType, resizeValue);
         }
 
-        // 获取拍摄时间
-        String captureTime = getCaptureTime(imageFile);
-        if (captureTime == null) {
-            captureTime = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
-        }
-
         // 添加水印
-        BufferedImage watermarkedImage = addWatermark(processedImage, captureTime, fontSize, color, position);
+        BufferedImage watermarkedImage = addWatermark(processedImage);
 
         // 生成输出文件名
         String outputFileName = generateOutputFileName(imageFile.getName(), format);
@@ -626,8 +780,8 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         return null;
     }
 
-    private BufferedImage addWatermark(BufferedImage originalImage, String text,
-                                       int fontSize, String color, String position) {
+    // 修改 addWatermark 方法以支持新功能
+    private BufferedImage addWatermark(BufferedImage originalImage) throws IOException {
         int width = originalImage.getWidth();
         int height = originalImage.getHeight();
 
@@ -640,13 +794,34 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         // 绘制原图
         g2d.drawImage(originalImage, 0, 0, null);
 
-        // 设置字体
-        Font font = new Font("Arial", Font.BOLD, fontSize);
+        if (textWatermarkRadio.isSelected()) {
+            // 添加文本水印
+            addTextWatermark(g2d, width, height);
+        } else {
+            // 添加图片水印
+            addImageWatermark(g2d, width, height);
+        }
+
+        g2d.dispose();
+        return watermarkedImage;
+    }
+    // 添加文本水印方法
+    private void addTextWatermark(Graphics2D g2d, int imageWidth, int imageHeight) {
+        String text = watermarkTextField.getText();
+        String fontName = (String) fontNameCombo.getSelectedItem();
+        int fontSize = Integer.parseInt((String) fontSizeCombo.getSelectedItem());
+        int style = Font.PLAIN;
+        if (boldCheckBox.isSelected()) style |= Font.BOLD;
+        if (italicCheckBox.isSelected()) style |= Font.ITALIC;
+
+        Font font = new Font(fontName, style, fontSize);
         g2d.setFont(font);
 
-        // 设置颜色
-        Color textColor = parseColor(color);
-        g2d.setColor(textColor);
+        // 设置颜色和透明度
+        Color baseColor = colorPickerButton.getBackground();
+        int alpha = (int) (transparencySlider.getValue() * 2.55); // 转换为0-255范围
+        Color color = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), alpha);
+        g2d.setColor(color);
 
         // 启用抗锯齿
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -658,6 +833,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         int textHeight = fontMetrics.getHeight();
 
         // 根据位置设置水印坐标
+        String position = (String) positionCombo.getSelectedItem();
         int x = 0, y = 0;
         switch (position.toLowerCase()) {
             case "top-left":
@@ -665,29 +841,107 @@ public class ImageWatermarkProcessorGUI extends JFrame {
                 y = textHeight;
                 break;
             case "top-right":
-                x = width - textWidth - 10;
+                x = imageWidth - textWidth - 10;
                 y = textHeight;
                 break;
             case "center":
-                x = (width - textWidth) / 2;
-                y = height / 2;
+                x = (imageWidth - textWidth) / 2;
+                y = imageHeight / 2;
                 break;
             case "bottom-left":
                 x = 10;
-                y = height - 10;
+                y = imageHeight - 10;
                 break;
             case "bottom-right":
             default:
-                x = width - textWidth - 10;
-                y = height - 10;
+                x = imageWidth - textWidth - 10;
+                y = imageHeight - 10;
                 break;
         }
 
-        // 绘制水印
-        g2d.drawString(text, x, y);
+        // 添加阴影效果
+        if (shadowCheckBox.isSelected()) {
+            g2d.setColor(new Color(0, 0, 0, alpha));
+            g2d.drawString(text, x + 2, y + 2);
+            g2d.setColor(color);
+        }
 
-        g2d.dispose();
-        return watermarkedImage;
+        // 添加描边效果
+        if (outlineCheckBox.isSelected()) {
+            // 绘制描边
+            g2d.setColor(new Color(0, 0, 0, alpha));
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    if (i != 0 || j != 0) {
+                        g2d.drawString(text, x + i, y + j);
+                    }
+                }
+            }
+            g2d.setColor(color);
+        }
+
+        // 绘制文本
+        g2d.drawString(text, x, y);
+    }
+
+    // 添加图片水印方法
+    private void addImageWatermark(Graphics2D g2d, int imageWidth, int imageHeight) throws IOException {
+        String imagePath = imagePathField.getText().trim();
+        if (imagePath.isEmpty()) {
+            throw new IOException("请选择水印图片");
+        }
+
+        File imageFile = new File(imagePath);
+        if (!imageFile.exists()) {
+            throw new IOException("水印图片文件不存在");
+        }
+
+        BufferedImage watermarkImage = ImageIO.read(imageFile);
+        if (watermarkImage == null) {
+            throw new IOException("无法读取水印图片");
+        }
+
+        // 计算缩放后的尺寸
+        int scalePercent = imageScaleSlider.getValue();
+        int scaledWidth = (int) (watermarkImage.getWidth() * scalePercent / 100.0);
+        int scaledHeight = (int) (watermarkImage.getHeight() * scalePercent / 100.0);
+
+        // 根据位置设置水印坐标
+        String position = (String) positionCombo.getSelectedItem();
+        int x = 0, y = 0;
+        switch (position.toLowerCase()) {
+            case "top-left":
+                x = 10;
+                y = 10;
+                break;
+            case "top-right":
+                x = imageWidth - scaledWidth - 10;
+                y = 10;
+                break;
+            case "center":
+                x = (imageWidth - scaledWidth) / 2;
+                y = (imageHeight - scaledHeight) / 2;
+                break;
+            case "bottom-left":
+                x = 10;
+                y = imageHeight - scaledHeight - 10;
+                break;
+            case "bottom-right":
+            default:
+                x = imageWidth - scaledWidth - 10;
+                y = imageHeight - scaledHeight - 10;
+                break;
+        }
+
+        // 设置透明度
+        int alpha = imageTransparencySlider.getValue();
+        if (alpha < 100) {
+            AlphaComposite alphaComposite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha / 100.0f);
+            g2d.setComposite(alphaComposite);
+        }
+
+        // 绘制水印图片
+        g2d.drawImage(watermarkImage, x, y, scaledWidth, scaledHeight, null);
     }
 
     private Color parseColor(String color) {
