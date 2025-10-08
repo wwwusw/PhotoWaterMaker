@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -74,9 +75,11 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         setupDragAndDrop();
         updateUIBasedOnFormat(); // 初始化时根据默认格式更新UI
         loadTemplates(); // 加载已保存的模板
-        updateTemplateCombo(); // 更新模板下拉框
         loadLastConfiguration(); // 加载上次配置
         saveConfigurationOnExit();
+
+        // 增加窗体宽度，从900调整为1200
+        setSize(1200, 700);
     }
     private JTextField watermarkTextField;
     private JComboBox<String> fontNameCombo;
@@ -1744,6 +1747,20 @@ public class ImageWatermarkProcessorGUI extends JFrame {
     // 在类中添加以下方法
 
     /**
+     * 检查模板是否为空
+     */
+    private boolean isTemplateEmpty(WatermarkTemplate template) {
+        // 检查文本水印是否为空
+        boolean isTextEmpty = template.watermarkText == null || template.watermarkText.isEmpty();
+        
+        // 检查图片水印是否为空
+        boolean isImageEmpty = template.imagePath == null || template.imagePath.isEmpty();
+        
+        // 如果文本和图片水印都为空，则模板为空
+        return isTextEmpty && isImageEmpty;
+    }
+
+    /**
      * 保存当前配置为模板
      */
     private void saveTemplate() {
@@ -1877,7 +1894,6 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         }
     }
 
-    // 替换 saveTemplates 方法
     /**
      * 保存模板到文件
      */
@@ -1894,8 +1910,8 @@ public class ImageWatermarkProcessorGUI extends JFrame {
                 Map<String, Object> templateData = new HashMap<>();
 
                 // 保存文本水印配置
-                templateData.put("watermarkText", template.watermarkText);
-                templateData.put("fontName", template.fontName);
+                templateData.put("watermarkText", template.watermarkText != null ? template.watermarkText : "");
+                templateData.put("fontName", template.fontName != null ? template.fontName : "Arial");
                 templateData.put("fontSize", template.fontSize);
                 templateData.put("bold", template.bold);
                 templateData.put("italic", template.italic);
@@ -1908,13 +1924,13 @@ public class ImageWatermarkProcessorGUI extends JFrame {
                 templateData.put("outline", template.outline);
 
                 // 保存图片水印配置
-                templateData.put("imagePath", template.imagePath);
+                templateData.put("imagePath", template.imagePath != null ? template.imagePath : "");
                 templateData.put("imageTransparency", template.imageTransparency);
                 templateData.put("imageScale", template.imageScale);
 
                 // 保存通用配置
                 templateData.put("isTextWatermark", template.isTextWatermark);
-                templateData.put("position", template.position);
+                templateData.put("position", template.position != null ? template.position : "bottom-right");
                 templateData.put("rotation", template.rotation);
 
                 templatesData.put(name, templateData);
@@ -1939,30 +1955,33 @@ public class ImageWatermarkProcessorGUI extends JFrame {
             currentConfig.position = (String) positionCombo.getSelectedItem();
             currentConfig.rotation = rotationSlider.getValue();
 
-            Map<String, Object> currentConfigData = new HashMap<>();
-            currentConfigData.put("watermarkText", currentConfig.watermarkText);
-            currentConfigData.put("fontName", currentConfig.fontName);
-            currentConfigData.put("fontSize", currentConfig.fontSize);
-            currentConfigData.put("bold", currentConfig.bold);
-            currentConfigData.put("italic", currentConfig.italic);
-            currentConfigData.put("color", String.format("#%02x%02x%02x",
-                    currentConfig.color.getRed(),
-                    currentConfig.color.getGreen(),
-                    currentConfig.color.getBlue()));
-            currentConfigData.put("transparency", currentConfig.transparency);
-            currentConfigData.put("shadow", currentConfig.shadow);
-            currentConfigData.put("outline", currentConfig.outline);
-            currentConfigData.put("imagePath", currentConfig.imagePath);
-            currentConfigData.put("imageTransparency", currentConfig.imageTransparency);
-            currentConfigData.put("imageScale", currentConfig.imageScale);
-            currentConfigData.put("isTextWatermark", currentConfig.isTextWatermark);
-            currentConfigData.put("position", currentConfig.position);
-            currentConfigData.put("rotation", currentConfig.rotation);
+            // 只有当配置不为空时才保存
+            if (!isTemplateEmpty(currentConfig)) {
+                Map<String, Object> currentConfigData = new HashMap<>();
+                currentConfigData.put("watermarkText", currentConfig.watermarkText != null ? currentConfig.watermarkText : "");
+                currentConfigData.put("fontName", currentConfig.fontName != null ? currentConfig.fontName : "Arial");
+                currentConfigData.put("fontSize", currentConfig.fontSize);
+                currentConfigData.put("bold", currentConfig.bold);
+                currentConfigData.put("italic", currentConfig.italic);
+                currentConfigData.put("color", String.format("#%02x%02x%02x",
+                        currentConfig.color.getRed(),
+                        currentConfig.color.getGreen(),
+                        currentConfig.color.getBlue()));
+                currentConfigData.put("transparency", currentConfig.transparency);
+                currentConfigData.put("shadow", currentConfig.shadow);
+                currentConfigData.put("outline", currentConfig.outline);
+                currentConfigData.put("imagePath", currentConfig.imagePath != null ? currentConfig.imagePath : "");
+                currentConfigData.put("imageTransparency", currentConfig.imageTransparency);
+                currentConfigData.put("imageScale", currentConfig.imageScale);
+                currentConfigData.put("isTextWatermark", currentConfig.isTextWatermark);
+                currentConfigData.put("position", currentConfig.position != null ? currentConfig.position : "bottom-right");
+                currentConfigData.put("rotation", currentConfig.rotation);
 
-            data.put("lastConfiguration", currentConfigData);
+                data.put("lastConfiguration", currentConfigData);
+            }
 
             // 写入文件
-            try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
+            try (FileWriter writer = new FileWriter(CONFIG_FILE, StandardCharsets.UTF_8)) {
                 writer.write(mapToJson(data));
             }
         } catch (Exception e) {
@@ -1978,7 +1997,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         try {
             File configFile = new File(CONFIG_FILE);
             if (configFile.exists()) {
-                try (FileReader reader = new FileReader(configFile)) {
+                try (FileReader reader = new FileReader(configFile, StandardCharsets.UTF_8)) {
                     StringBuilder jsonBuilder = new StringBuilder();
                     int character;
                     while ((character = reader.read()) != -1) {
@@ -2032,12 +2051,17 @@ public class ImageWatermarkProcessorGUI extends JFrame {
                                     templates.put(name, template);
                                 }
                             }
+                            updateTemplateCombo();
                         }
                     }
                 }
             }
+            // 即使配置文件不存在，也要更新模板下拉框以确保界面一致性
+            updateTemplateCombo();
         } catch (Exception e) {
             e.printStackTrace();
+            // 出错时也要更新模板下拉框
+            updateTemplateCombo();
         }
     }
 
@@ -2080,6 +2104,7 @@ public class ImageWatermarkProcessorGUI extends JFrame {
         }
         return false;
     }
+
     /**
      * 加载上次配置
      */
@@ -2088,49 +2113,62 @@ public class ImageWatermarkProcessorGUI extends JFrame {
             File configFile = new File(CONFIG_FILE);
             if (configFile.exists()) {
                 try (FileReader reader = new FileReader(configFile)) {
-                    String json = "";
+                    StringBuilder jsonBuilder = new StringBuilder();
                     int character;
                     while ((character = reader.read()) != -1) {
-                        json += (char) character;
+                        jsonBuilder.append((char) character);
                     }
 
-                    Map<String, Object> data = jsonToMap(json);
+                    String jsonString = jsonBuilder.toString();
+                    if (jsonString.trim().isEmpty()) {
+                        return; // 文件为空，直接返回
+                    }
 
-                    // 加载上次配置
+                    Map<String, Object> data = jsonToMap(jsonString);
+
+                    // 只有在存在上次配置且不为空时才加载，否则不执行任何操作
                     if (data.containsKey("lastConfiguration")) {
-                        Map<String, Object> configData = (Map<String, Object>) data.get("lastConfiguration");
+                        Object configObj = data.get("lastConfiguration");
+                        if (configObj instanceof Map) {
+                            Map<String, Object> configData = (Map<String, Object>) configObj;
+                            
+                            // 检查配置是否包含有效数据
+                            if (!configData.isEmpty()) {
+                                WatermarkTemplate template = new WatermarkTemplate();
 
-                        WatermarkTemplate template = new WatermarkTemplate();
+                                // 加载文本水印配置
+                                template.watermarkText = getStringValue(configData.get("watermarkText"));
+                                template.fontName = getStringValue(configData.get("fontName"));
+                                template.fontSize = getObjectAsInt(configData.get("fontSize"));
+                                template.bold = getObjectAsBoolean(configData.get("bold"));
+                                template.italic = getObjectAsBoolean(configData.get("italic"));
+                                template.color = colorFromString(getStringValue(configData.get("color")));
+                                template.transparency = getObjectAsInt(configData.get("transparency"));
+                                template.shadow = getObjectAsBoolean(configData.get("shadow"));
+                                template.outline = getObjectAsBoolean(configData.get("outline"));
 
-                        // 加载文本水印配置
-                        template.watermarkText = (String) configData.get("watermarkText");
-                        template.fontName = (String) configData.get("fontName");
-                        template.fontSize = (Integer) configData.get("fontSize");
-                        template.bold = (Boolean) configData.get("bold");
-                        template.italic = (Boolean) configData.get("italic");
-                        template.color = colorFromString((String) configData.get("color"));
-                        template.transparency = (Integer) configData.get("transparency");
-                        template.shadow = (Boolean) configData.get("shadow");
-                        template.outline = (Boolean) configData.get("outline");
+                                // 加载图片水印配置
+                                template.imagePath = getStringValue(configData.get("imagePath"));
+                                template.imageTransparency = getObjectAsInt(configData.get("imageTransparency"));
+                                template.imageScale = getObjectAsInt(configData.get("imageScale"));
 
-                        // 加载图片水印配置
-                        template.imagePath = (String) configData.get("imagePath");
-                        template.imageTransparency = (Integer) configData.get("imageTransparency");
-                        template.imageScale = (Integer) configData.get("imageScale");
+                                // 加载通用配置
+                                template.isTextWatermark = getObjectAsBoolean(configData.get("isTextWatermark"));
+                                template.position = getStringValue(configData.get("position"));
+                                template.rotation = getObjectAsInt(configData.get("rotation"));
 
-                        // 加载通用配置
-                        template.isTextWatermark = (Boolean) configData.get("isTextWatermark");
-                        template.position = (String) configData.get("position");
-                        template.rotation = (Integer) configData.get("rotation");
-
-                        applyTemplate(template);
+                                applyTemplate(template);
+                            }
+                        }
                     }
                 }
             }
+            // 如果配置文件不存在，不执行任何操作，保持界面默认值
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
 
     /**
      * 从颜色字符串创建Color对象
@@ -2202,33 +2240,118 @@ public class ImageWatermarkProcessorGUI extends JFrame {
      * 简单的JSON字符串转Map方法
      */
     private Map<String, Object> jsonToMap(String json) {
-        // 这是一个非常简化的JSON解析器，仅用于演示
-        // 实际项目中建议使用专门的JSON库如Gson或Jackson
         Map<String, Object> map = new HashMap<>();
 
-        // 移除大括号
-        json = json.trim();
-        if (json.startsWith("{") && json.endsWith("}")) {
-            json = json.substring(1, json.length() - 1);
+        try {
+            // 移除大括号
+            json = json.trim();
+            if (json.startsWith("{") && json.endsWith("}")) {
+                json = json.substring(1, json.length() - 1);
+            }
+
+            // 处理空对象
+            if (json.trim().isEmpty()) {
+                return map;
+            }
+
+            // 分割键值对，但需要考虑嵌套对象和数组
+            int braceCount = 0;
+            int bracketCount = 0;
+            int start = 0;
+            boolean inString = false;
+            char stringDelimiter = '"';
+
+            for (int i = 0; i < json.length(); i++) {
+                char c = json.charAt(i);
+
+                // 处理字符串内的字符（忽略分隔符）
+                if (inString) {
+                    if (c == stringDelimiter && (i == 0 || json.charAt(i - 1) != '\\')) {
+                        inString = false;
+                    }
+                    continue;
+                }
+
+                // 检查字符串开始
+                if (c == '"' || c == '\'') {
+                    inString = true;
+                    stringDelimiter = c;
+                    continue;
+                }
+
+                // 计算大括号和中括号层级
+                if (c == '{') {
+                    braceCount++;
+                } else if (c == '}') {
+                    braceCount--;
+                } else if (c == '[') {
+                    bracketCount++;
+                } else if (c == ']') {
+                    bracketCount--;
+                }
+
+                // 当不在嵌套结构中且遇到逗号时，分割键值对
+                if (braceCount == 0 && bracketCount == 0 && c == ',') {
+                    String pair = json.substring(start, i).trim();
+                    parseKeyValuePair(pair, map);
+                    start = i + 1;
+                }
+            }
+
+            // 处理最后一个键值对
+            if (start < json.length()) {
+                String pair = json.substring(start).trim();
+                parseKeyValuePair(pair, map);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        // 解析键值对
-        String[] pairs = json.split(",");
-        for (String pair : pairs) {
-            String[] keyValue = pair.split(":");
+        return map;
+    }
+
+    /**
+     * 解析单个键值对
+     */
+    private void parseKeyValuePair(String pair, Map<String, Object> map) {
+        try {
+            String[] keyValue = pair.split(":", 2);
             if (keyValue.length == 2) {
-                String key = keyValue[0].trim().replaceAll("\"", "");
+                String key = keyValue[0].trim();
                 String value = keyValue[1].trim();
 
+                // 清理键名（移除引号）
+                if (key.startsWith("\"") && key.endsWith("\"")) {
+                    key = key.substring(1, key.length() - 1);
+                }
+
+                // 根据值的类型进行解析
                 if (value.startsWith("\"") && value.endsWith("\"")) {
                     // 字符串值
-                    map.put(key, value.substring(1, value.length() - 1));
+                    String stringValue = value.substring(1, value.length() - 1);
+                    // 处理转义字符
+                    stringValue = stringValue.replace("\\\"", "\"")
+                            .replace("\\\\", "\\")
+                            .replace("\\n", "\n")
+                            .replace("\\r", "\r")
+                            .replace("\\t", "\t");
+                    map.put(key, stringValue);
+                } else if (value.equals("true")) {
+                    // 布尔值 true
+                    map.put(key, true);
+                } else if (value.equals("false")) {
+                    // 布尔值 false
+                    map.put(key, false);
+                } else if (value.equals("null")) {
+                    // null 值
+                    map.put(key, null);
                 } else if (value.startsWith("{") && value.endsWith("}")) {
                     // 嵌套对象
                     map.put(key, jsonToMap(value));
-                } else if (value.equals("true") || value.equals("false")) {
-                    // 布尔值
-                    map.put(key, Boolean.parseBoolean(value));
+                } else if (value.startsWith("[") && value.endsWith("]")) {
+                    // 数组（简化处理为字符串）
+                    map.put(key, value);
                 } else {
                     // 数字值
                     try {
@@ -2238,14 +2361,16 @@ public class ImageWatermarkProcessorGUI extends JFrame {
                             map.put(key, Integer.parseInt(value));
                         }
                     } catch (NumberFormatException e) {
+                        // 如果解析失败，作为字符串处理
                         map.put(key, value);
                     }
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        return map;
     }
+
 
     /**
      * 在窗口关闭时保存配置
